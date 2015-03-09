@@ -1,0 +1,6 @@
+- hosts: redmine-test
+  remote_user: deploy
+  sudo: no
+
+  roles:
+    - build-docker-image
