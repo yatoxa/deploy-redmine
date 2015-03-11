@@ -1,0 +1,26 @@
+- name: update apt cache
+  apt: update_cache=yes cache_valid_time=3600
+
+- name: install packages
+  apt: name={{ item }}
+  with_items:
+    - autoconf
+    - git
+    - subversion
+    - curl
+    - bison
+    - imagemagick
+    - libmagickwand-dev
+    - build-essential
+    - libmariadbclient-dev
+    - libssl-dev
+    - libreadline-dev
+    - libyaml-dev
+    - zlib1g-dev
+    - python-software-properties
+
+- name: add redmine group
+  group: name=redmine system=yes
+
+- name: add redmine user
+  user: name=redmine shell=/bin/bash home=/opt/redmine group=redmine system=yes

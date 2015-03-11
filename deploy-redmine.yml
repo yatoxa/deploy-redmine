@@ -1,6 +1,8 @@
 - hosts: redmine-test
   remote_user: deploy
-  sudo: no
+  gather_facts: no
+  sudo: yes
 
   roles:
-    - build-docker-image
+#    - build-docker-image
+    - deploy-redmine
