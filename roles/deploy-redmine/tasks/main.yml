@@ -24,3 +24,24 @@
 
 - name: add redmine user
   user: name=redmine shell=/bin/bash home=/opt/redmine group=redmine system=yes
+
+- name: cloning rbenv
+  git: repo=git://github.com/sstephenson/rbenv.git accept_hostkey=yes dest=/opt/redmine/.rbenv version=master
+
+- name: cloning ruby-build
+  git: repo=git://github.com/sstephenson/ruby-build.git accept_hostkey=yes dest=/opt/redmine/.rbenv/plugins/ruby-build version=master
+
+- name: setting owner and group for .rbenv directory
+  file: path=/opt/redmine/.rbenv recurse=yes owner=redmine group=redmine
+
+- name: adding rbenv to $PATH
+  shell: su - redmine -c "echo 'export PATH=\"\$HOME/.rbenv/bin:\$PATH\"' >> ~/.bash_profile"
+
+- name: adding rbenv initialization to .bash_profile
+  shell: su - redmine -c "echo 'eval \"\$(rbenv init -)\"' >> ~/.bash_profile"
+
+- name: installing ruby 2.1.2
+  shell: su - redmine -c "rbenv install 2.1.2"
+
+- name: setting as global ruby 2.1.2
+  shell: su - redmine -c "rbenv global 2.1.2"
