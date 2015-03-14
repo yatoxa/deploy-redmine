@@ -1,5 +1,11 @@
-# Required for sudo_user
-# Add -i to sudo_flags in ~/.ansible.cfg or /etc/ansible/ansible.cfg
+- name: add nginx apt-key
+  apt_key: url=http://nginx.org/keys/nginx_signing.key state=present
+
+- name: add nginx repo
+  apt_repository: repo='deb http://nginx.org/packages/ubuntu/ trusty nginx' state=present
+
+- name: add nginx repo src
+  apt_repository: repo='deb-src http://nginx.org/packages/ubuntu/ trusty nginx' state=present
 
 - name: update apt cache
   apt: update_cache=yes cache_valid_time=3600
@@ -20,6 +26,16 @@
     - libpq-dev
     - zlib1g-dev
     - python-software-properties
+    - nginx
+
+- name: check nginx service
+  service: name=nginx enabled=yes state=started
+
+- name: remove standart nginx configuration
+  shell: rm -f /etc/nginx/conf.d/*.conf
+
+- name: restart nginx service
+  service: name=nginx state=restarted
 
 - name: add redmine group
   group: name=redmine system=yes
@@ -27,36 +43,36 @@
 - name: add redmine user
   user: name=redmine shell=/bin/bash home=/opt/redmine group=redmine system=yes
 
-- name: cloning rbenv
+- name: clone rbenv
   git: repo=git://github.com/sstephenson/rbenv.git accept_hostkey=yes dest=/opt/redmine/.rbenv version=master
 
-- name: cloning ruby-build
+- name: clone ruby-build
   git: repo=git://github.com/sstephenson/ruby-build.git accept_hostkey=yes dest=/opt/redmine/.rbenv/plugins/ruby-build version=master
 
-- name: setting owner and group for .rbenv directory
+- name: set owner and group for .rbenv directory
   file: path=/opt/redmine/.rbenv recurse=yes owner=redmine group=redmine
 
-- name: adding rbenv to $PATH
+- name: add rbenv to $PATH
   shell: echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
   sudo_user: redmine
 
-- name: adding rbenv initialization to .bash_profile
+- name: add rbenv initialization to .bash_profile
   shell: echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
   sudo_user: redmine
 
-- name: installing ruby 2.1.2
+- name: install ruby 2.1.2
   shell: rbenv install -f 2.1.2
   sudo_user: redmine
 
-- name: setting as global ruby 2.1.2
+- name: set as global ruby 2.1.2
   shell: rbenv global 2.1.2
   sudo_user: redmine
 
-- name: cloning redmine 2.6-stable
+- name: clone redmine 2.6-stable
   git: repo=https://github.com/redmine/redmine.git accept_hostkey=yes dest=/opt/redmine/redmine version=2.6-stable
   sudo_user: redmine
 
-- name: setting true rules
+- name: set true rights
   file: path=/opt/redmine/redmine/{{ item.path }} owner=redmine group=redmine mode=0755 recurse=yes state=directory
   with_items:
     - { path: 'tmp' }
@@ -91,3 +107,18 @@
   sudo_user: redmine
 - shell: cd ~/redmine && RAILS_ENV=production rake redmine:load_default_data
   sudo_user: redmine
+
+- name: copy redmine nginx config
+  template: src=nginx/conf.d/redmine.conf dest=/etc/nginx/conf.d/redmine.comf mode=0644
+
+- name: restart nginx service
+  service: name=nginx state=restarted
+
+- name: copy redmine init script
+  template: src=init.d/redmine dest=/etc/init.d/redmine mode=0755
+
+- name: add redmine service
+  shell: update-rc.d redmine defaults
+
+- name: start redmine service
+  service: name=redmine enabled=yes state=started

@@ -7,12 +7,15 @@
 
     - name: redmine_db_database
       prompt: Enter Redmine database name
+      private: no
 
     - name: redmine_db_host
       prompt: Enter Redmine database host
+      private: no
 
     - name: redmine_db_username
       prompt: Enter Redmine database username
+      private: no
 
     - name: redmine_db_password
       prompt: Enter Redmine database password

@@ -1,5 +1,7 @@
 #!/usr/bin/env puma
 
+# https://gist.github.com/jbradach/6ee5842e5e2543d59adb
+
 # start puma with:
 # RAILS_ENV=production bundle exec puma -C ./config/puma.rb
 
