@@ -1,3 +1,6 @@
+# Required for sudo_user
+# Add -i to sudo_flags in ~/.ansible.cfg or /etc/ansible/ansible.cfg
+
 - name: update apt cache
   apt: update_cache=yes cache_valid_time=3600
 
@@ -6,16 +9,15 @@
   with_items:
     - autoconf
     - git
-    - subversion
     - curl
     - bison
     - imagemagick
     - libmagickwand-dev
     - build-essential
-    - libmariadbclient-dev
     - libssl-dev
     - libreadline-dev
     - libyaml-dev
+    - libpq-dev
     - zlib1g-dev
     - python-software-properties
 
@@ -35,19 +37,24 @@
   file: path=/opt/redmine/.rbenv recurse=yes owner=redmine group=redmine
 
 - name: adding rbenv to $PATH
-  shell: su - redmine -c "echo 'export PATH=\"\$HOME/.rbenv/bin:\$PATH\"' >> ~/.bash_profile"
+  shell: echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
+  sudo_user: redmine
 
 - name: adding rbenv initialization to .bash_profile
-  shell: su - redmine -c "echo 'eval \"\$(rbenv init -)\"' >> ~/.bash_profile"
+  shell: echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
+  sudo_user: redmine
 
 - name: installing ruby 2.1.2
-  shell: su - redmine -c "rbenv install -f 2.1.2"
+  shell: rbenv install -f 2.1.2
+  sudo_user: redmine
 
 - name: setting as global ruby 2.1.2
-  shell: su - redmine -c "rbenv global 2.1.2"
+  shell: rbenv global 2.1.2
+  sudo_user: redmine
 
 - name: cloning redmine 2.6-stable
   git: repo=https://github.com/redmine/redmine.git accept_hostkey=yes dest=/opt/redmine/redmine version=2.6-stable
+  sudo_user: redmine
 
 - name: setting true rules
   file: path=/opt/redmine/redmine/{{ item.path }} owner=redmine group=redmine mode=0755 recurse=yes state=directory
@@ -59,5 +66,28 @@
     - { path: 'files' }
     - { path: 'log' }
 
-- name:
+- name: copy puma config
   template: src=config/puma.rb dest=/opt/redmine/redmine/config/puma.rb owner=redmine group=redmine mode=0600
+
+- name: copy database config
+  template: src=config/database.postgresql.yml dest=/opt/redmine/redmine/config/database.yml owner=redmine group=redmine mode=0600
+
+- name: install gems
+  shell: 'echo "gem: --no-ri --no-rdoc" >> ~/.gemrc'
+  sudo_user: redmine
+- shell: echo "# Gemfile.local\ngem 'puma'" >> ~/redmine/Gemfile.local
+  sudo_user: redmine
+- shell: gem install bundler
+  sudo_user: redmine
+- shell: rbenv rehash
+  sudo_user: redmine
+- shell: cd ~/redmine && bundle install --without development test
+  sudo_user: redmine
+
+- name: generate token and prepare database
+  shell: cd ~/redmine && rake generate_secret_token
+  sudo_user: redmine
+- shell: cd ~/redmine && RAILS_ENV=production rake db:migrate
+  sudo_user: redmine
+- shell: cd ~/redmine && RAILS_ENV=production rake redmine:load_default_data
+  sudo_user: redmine

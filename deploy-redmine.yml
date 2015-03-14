@@ -3,6 +3,22 @@
   gather_facts: no
   sudo: yes
 
+  vars_prompt:
+
+    - name: redmine_db_database
+      prompt: Enter Redmine database name
+
+    - name: redmine_db_host
+      prompt: Enter Redmine database host
+
+    - name: redmine_db_username
+      prompt: Enter Redmine database username
+
+    - name: redmine_db_password
+      prompt: Enter Redmine database password
+      private: yes
+      confirm: yes
+
   roles:
 #    - build-docker-image
     - deploy-redmine
