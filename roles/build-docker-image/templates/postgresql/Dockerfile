@@ -42,6 +42,15 @@ USER postgres
 # Note: here we use ``&&\`` to run commands one after the other - the ``\``
 #       allows the RUN command to span multiple lines.
 RUN    /etc/init.d/postgresql start &&\
+    psql --command "UPDATE pg_database SET datistemplate = FALSE WHERE datname = 'template1';" &&\
+    psql --command "DROP DATABASE template1;" &&\
+    psql --command "CREATE DATABASE template1 WITH TEMPLATE = template0 ENCODING = 'UNICODE';" &&\
+    psql --command "UPDATE pg_database SET datistemplate = TRUE WHERE datname = 'template1';" &&\
+    psql --command "\c template1" &&\
+    psql --command "VACUUM FREEZE" &&\
+    psql --command "UPDATE pg_database SET datallowconn = FALSE WHERE datname = 'template1';" &&\
+    psql --command "CREATE ROLE redmine LOGIN ENCRYPTED PASSWORD 'md5c5a58b543b1cad88fa10f629c0e535c1' NOINHERIT VALID UNTIL 'infinity';" &&\
+    psql --command "CREATE DATABASE redmine WITH ENCODING='UTF8' OWNER=redmine;" &&\
     psql --command "CREATE USER docker WITH SUPERUSER PASSWORD 'docker';" &&\
     createdb -O docker docker
 

@@ -109,7 +109,7 @@
   sudo_user: redmine
 
 - name: copy redmine nginx config
-  template: src=nginx/conf.d/redmine.conf dest=/etc/nginx/conf.d/redmine.comf mode=0644
+  template: src=nginx/conf.d/redmine.conf dest=/etc/nginx/conf.d/redmine.conf mode=0644
 
 - name: restart nginx service
   service: name=nginx state=restarted

@@ -23,5 +23,5 @@
       confirm: yes
 
   roles:
-#    - build-docker-image
+    - build-docker-image
     - deploy-redmine
