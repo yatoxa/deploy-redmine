@@ -105,7 +105,7 @@
   sudo_user: redmine
 - shell: cd ~/redmine && RAILS_ENV=production rake db:migrate
   sudo_user: redmine
-- shell: cd ~/redmine && RAILS_ENV=production rake redmine:load_default_data
+- shell: cd ~/redmine && RAILS_ENV=production REDMINE_LANG=en rake redmine:load_default_data
   sudo_user: redmine
 
 - name: copy redmine nginx config
