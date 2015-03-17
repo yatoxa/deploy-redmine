@@ -25,6 +25,7 @@
     - libyaml-dev
     - libpq-dev
     - zlib1g-dev
+    - libffi-dev
     - python-software-properties
     - nginx
 
@@ -60,16 +61,16 @@
   shell: echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
   sudo_user: redmine
 
-- name: install ruby 2.1.2
-  shell: rbenv install -f 2.1.2
+- name: install ruby 2.2.1
+  shell: rbenv install -f 2.2.1
   sudo_user: redmine
 
-- name: set as global ruby 2.1.2
-  shell: rbenv global 2.1.2
+- name: set as global ruby 2.2.1
+  shell: rbenv global 2.2.1
   sudo_user: redmine
 
-- name: clone redmine 2.6-stable
-  git: repo=https://github.com/redmine/redmine.git accept_hostkey=yes dest=/opt/redmine/redmine version=2.6-stable
+- name: clone redmine 3.0-stable
+  git: repo=https://github.com/redmine/redmine.git accept_hostkey=yes dest=/opt/redmine/redmine version=3.0-stable
   sudo_user: redmine
 
 - name: set true rights
