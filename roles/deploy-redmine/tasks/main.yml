@@ -26,8 +26,12 @@
     - libpq-dev
     - zlib1g-dev
     - libffi-dev
+    - libssh2-1
+    - libssh2-1-dev
+    - libgpg-error-dev
     - python-software-properties
     - nginx
+    - cmake
 
 - name: check nginx service
   service: name=nginx enabled=yes state=started
@@ -46,12 +50,11 @@
 
 - name: clone rbenv
   git: repo=git://github.com/sstephenson/rbenv.git accept_hostkey=yes dest=/opt/redmine/.rbenv version=master
+  sudo_user: redmine
 
 - name: clone ruby-build
   git: repo=git://github.com/sstephenson/ruby-build.git accept_hostkey=yes dest=/opt/redmine/.rbenv/plugins/ruby-build version=master
-
-- name: set owner and group for .rbenv directory
-  file: path=/opt/redmine/.rbenv recurse=yes owner=redmine group=redmine
+  sudo_user: redmine
 
 - name: add rbenv to $PATH
   shell: echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
@@ -120,6 +123,81 @@
 
 - name: add redmine service
   shell: update-rc.d redmine defaults
+
+- name: start redmine service
+  service: name=redmine enabled=yes state=started
+
+- name: stop redmine service
+  service: name=redmine state=stopped
+
+- name: make directory ssh_keys
+  file: path=~/ssh_keys state=directory
+  sudo_user: redmine
+
+- name: generate redmine_gitolite_admin_id_rsa
+  shell: ssh-keygen -N '' -f ssh_keys/redmine_gitolite_admin_id_rsa
+  sudo_user: redmine
+
+- name: add git group
+  group: name=git system=yes
+
+- name: add git user
+  user: name=git shell=/bin/bash home=/home/git group=git system=yes
+
+- name: set true rights
+  file: path=/home/git/bin owner=git group=git mode=0700 state=directory
+
+- name: copy public key for gitolite-admin
+  copy: src=/opt/redmine/ssh_keys/redmine_gitolite_admin_id_rsa.pub dest=/home/git/ owner=git group=git mode=0600
+
+- name: clone gitolite v3.6.2
+  git: repo=git://github.com/sitaramc/gitolite accept_hostkey=yes version=v3.6.2
+  sudo_user: git
+
+- name: setup gitolite
+  shell: gitolite/install -to $HOME/bin && gitolite setup -pk $HOME/redmine_gitolite_admin_id_rsa.pub
+  sudo_user: git
+
+- name: remove public key for gitolite-admin
+  file: path=~/redmine_gitolite_admin_id_rsa.pub state=absent
+  sudo_user: git
+
+- name: clone bootstrap kit 0.2.2
+  git: repo=https://github.com/jbox-web/redmine_bootstrap_kit.git accept_hostkey=yes dest=~/redmine/plugins/redmine_bootstrap_kit version=0.2.2
+  sudo_user: redmine
+
+- name: clone git hosting plugin 1.0.2
+  git: repo=https://github.com/jbox-web/redmine_git_hosting.git accept_hostkey=yes dest=~/redmine/plugins/redmine_git_hosting version=1.0.2
+  sudo_user: redmine
+
+- name: install plugin gems
+  shell: cd ~/redmine && bundle install --without development test
+  sudo_user: redmine
+
+- name: migrate database
+  shell: bundle exec rake redmine:plugins:migrate RAILS_ENV=production NAME=redmine_git_hosting
+  sudo_user: redmine
+
+- name: gitolite must accept hook keys
+  lineinfile: dest=~/.gitolite.rc regexp={{ item.from }} line={{ item.to }}
+  with_items:
+    - { form: "^\s*GIT_CONFIG_KEYS\s*=>", to: "GIT_CONFIG_KEYS => '.*'," }
+    - { form: "^\s*LOCAL_CODE\s*=>", to: 'LOCAL_CODE => "$ENV{HOME}/local"' }
+  sudo_user: git
+
+- name: configure sudo
+  file: /etc/sudoers.d/redmine mode=0440
+- lineinfile: dest=/etc/sudoers.d/redmine line={{ item }} validate='visudo -cf %s'
+  with_items:
+    - "Defaults:redmine !requiretty"
+    - "redmine ALL=(git) NOPASSWD:ALL"
+
+- name: add localhost to redmine user known_hosts
+  shell: {{ item }}
+  with_items:
+    - 'ssh-keygen -R localhost'
+    - 'ssh-keyscan -H -t rsa localhost >> ~/.ssh/known_hosts'
+  sudo_user: redmine
 
 - name: start redmine service
   service: name=redmine enabled=yes state=started
