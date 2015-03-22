@@ -2,7 +2,7 @@
   apt_key: url=https://www.postgresql.org/media/keys/ACCC4CF8.asc state=present
 
 - name: add postgres repo
-  apt_repository: repo='deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main 9.4' state=present
+  apt_repository: repo='deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main' state=present
 
 - name: update apt cache
   apt: update_cache=yes cache_valid_time=3600
@@ -14,7 +14,15 @@
   locale_gen: name=en_US.UTF-8 state=present
 
 - name: set locale en_US.UTF-8 as default
-  lineinfile: dest=/etc/environment regexp="^LANG=" line="LANG=en_US.UTF-8"
+  lineinfile: dest=/etc/default/locale regexp="{{ item.regexp }}" line="{{ item.line }}"
+  with_items:
+    - { regexp: "^LANGUAGE=", line: "LANGUAGE=en_US.UTF-8" }
+    - { regexp: "^LC_ALL=", line: "LC_ALL=en_US.UTF-8" }
+    - { regexp: "^LANG=", line: "LANG=en_US.UTF-8" }
+    - { regexp: "^LC_TYPE=", line: "LC_TYPE=en_US.UTF-8" }
+
+- name: reconfigure locales
+  shell: localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 && dpkg-reconfigure locales
 
 - name: add postgres group
   group: name=postgres system=yes
@@ -32,14 +40,22 @@
     - postgresql-9.4
     - postgresql-contrib-9.4
 
+- name: run pg_createcluster 9.4 main
+  shell: pg_dropcluster 9.4 main --stop; pg_createcluster 9.4 main --start
+  environment:
+    LANGUAGE: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+    LANG: en_US.UTF-8
+    LC_TYPE: en_US.UTF-8
+
 - name: check postgresql service
   service: name=postgresql enabled=yes state=started
 
 - name: add /usr/lib/postgresql/9.4/bin to PATH and set PGDATA
-  lineinfile: dest=/etc/environment regexp="{{ item.regexp }}" line="{{ item.line }}" backrefs=yes
+  lineinfile: dest=/etc/environment regexp="{{ item.regexp }}" line="{{ item.line }}" backrefs={{ item.backrefs }}
   with_items:
-    - { regexp: '^PATH="*(.+)"*$', line: 'PATH=\"/usr/lib/postgresql/9.4/bin:\1\"' }
-    - { regexp: '^PGDATA=', line: 'PGDATA=/var/lib/postgresql/data' }
+    - { regexp: '^PATH=\"{0,1}(/usr/lib/postgresql/9\.4/bin:)*([^\"]+)', line: 'PATH=\"/usr/lib/postgresql/9.4/bin:\2\"', backrefs: yes }
+    - { regexp: '^PGDATA=', line: 'PGDATA=/var/lib/postgresql/data', backrefs: no }
 
 - name:
   shell: psql --command "{{ item }}"
