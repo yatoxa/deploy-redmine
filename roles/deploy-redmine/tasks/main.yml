@@ -130,44 +130,6 @@
 - name: stop redmine service
   service: name=redmine state=stopped
 
-- name: make directory ssh_keys
-  file: path=~/ssh_keys state=directory
-  sudo_user: redmine
-
-- name: generate redmine_gitolite_admin_id_rsa
-  shell: ssh-keygen -N '' -f ssh_keys/redmine_gitolite_admin_id_rsa
-  sudo_user: redmine
-
-- name: generate /etc/ssh/ssh_host_ed25519_key
-  shell: ssh-keygen -A
-
-- name: add git group
-  group: name=git system=yes
-
-- name: add git user
-  user: name=git shell=/bin/bash home=/home/git group=git system=yes
-
-- name: make directory /home/git/bin
-  file: path=/home/git/bin owner=git group=git mode=0700 state=directory
-
-- name: copy public key for gitolite-admin
-  shell: cp /opt/redmine/ssh_keys/redmine_gitolite_admin_id_rsa.pub /home/git/redmine_gitolite_admin_id_rsa.pub
-
-- name: set true rights to /home/git/redmine_gitolite_admin_id_rsa.pub
-  file: path=/home/git/redmine_gitolite_admin_id_rsa.pub owner=git group=git mode=0600
-
-- name: clone gitolite v3.6.2
-  git: repo=git://github.com/sitaramc/gitolite accept_hostkey=yes dest=~/gitolite version=v3.6.2
-  sudo_user: git
-
-- name: setup gitolite
-  shell: gitolite/install -to $HOME/bin && gitolite setup -pk $HOME/redmine_gitolite_admin_id_rsa.pub
-  sudo_user: git
-
-- name: remove public key for gitolite-admin
-  file: path=~/redmine_gitolite_admin_id_rsa.pub state=absent
-  sudo_user: git
-
 - name: clone bootstrap kit 0.2.2
   git: repo=https://github.com/jbox-web/redmine_bootstrap_kit.git accept_hostkey=yes dest=~/redmine/plugins/redmine_bootstrap_kit version=0.2.2
   sudo_user: redmine
@@ -183,6 +145,47 @@
 - name: migrate database
   shell: cd ~/redmine && bundle exec rake redmine:plugins:migrate RAILS_ENV=production NAME=redmine_git_hosting
   sudo_user: redmine
+
+- name: make directory ~/redmine/plugins/redmine_git_hosting/ssh_keys
+  file: path=~/redmine/plugins/redmine_git_hosting/ssh_keys state=directory mode=0700
+  sudo_user: redmine
+
+- name: generate redmine_gitolite_admin_id_rsa
+  shell: "{{ item }}"
+  with_items:
+    - 'rm -f ~/redmine/plugins/redmine_git_hosting/ssh_keys/redmine_gitolite_admin_id_*'
+    - 'ssh-keygen -q -t rsa -f ~/redmine/plugins/redmine_git_hosting/ssh_keys/redmine_gitolite_admin_id_rsa -N ""'
+  sudo_user: redmine
+
+- name: generate /etc/ssh/ssh_host_ed25519_key
+  shell: ssh-keygen -A
+
+- name: add git group
+  group: name=git system=yes
+
+- name: add git user
+  user: name=git shell=/bin/bash home=/home/git group=git system=yes
+
+- name: make directory /home/git/bin
+  file: path=/home/git/bin owner=git group=git mode=0700 state=directory
+
+- name: copy public key for gitolite-admin
+  shell: cp /opt/redmine/redmine/plugins/redmine_git_hosting/ssh_keys/redmine_gitolite_admin_id_rsa.pub /home/git/redmine_gitolite_admin_id_rsa.pub
+
+- name: set true rights to /home/git/redmine_gitolite_admin_id_rsa.pub
+  file: path=/home/git/redmine_gitolite_admin_id_rsa.pub owner=git group=git mode=0600
+
+- name: clone gitolite v3.6.2
+  git: repo=git://github.com/sitaramc/gitolite accept_hostkey=yes dest=~/gitolite version=v3.6.2
+  sudo_user: git
+
+- name: setup gitolite
+  shell: gitolite/install -to $HOME/bin && gitolite setup -pk $HOME/redmine_gitolite_admin_id_rsa.pub
+  sudo_user: git
+
+- name: remove public key for gitolite-admin
+  file: path=~/redmine_gitolite_admin_id_rsa.pub state=absent
+  sudo_user: git
 
 - name: gitolite must accept hook keys
   lineinfile: dest=~/.gitolite.rc regexp="{{ item.from }}" line="{{ item.to }}"
