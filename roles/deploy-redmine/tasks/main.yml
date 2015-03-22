@@ -138,20 +138,26 @@
   shell: ssh-keygen -N '' -f ssh_keys/redmine_gitolite_admin_id_rsa
   sudo_user: redmine
 
+- name: generate /etc/ssh/ssh_host_ed25519_key
+  shell: ssh-keygen -A
+
 - name: add git group
   group: name=git system=yes
 
 - name: add git user
   user: name=git shell=/bin/bash home=/home/git group=git system=yes
 
-- name: set true rights
+- name: make directory /home/git/bin
   file: path=/home/git/bin owner=git group=git mode=0700 state=directory
 
 - name: copy public key for gitolite-admin
-  copy: src=/opt/redmine/ssh_keys/redmine_gitolite_admin_id_rsa.pub dest=/home/git/ owner=git group=git mode=0600
+  shell: cp /opt/redmine/ssh_keys/redmine_gitolite_admin_id_rsa.pub /home/git/redmine_gitolite_admin_id_rsa.pub
+
+- name: set true rights to /home/git/redmine_gitolite_admin_id_rsa.pub
+  file: path=/home/git/redmine_gitolite_admin_id_rsa.pub owner=git group=git mode=0600
 
 - name: clone gitolite v3.6.2
-  git: repo=git://github.com/sitaramc/gitolite accept_hostkey=yes version=v3.6.2
+  git: repo=git://github.com/sitaramc/gitolite accept_hostkey=yes dest=~/gitolite version=v3.6.2
   sudo_user: git
 
 - name: setup gitolite
@@ -175,25 +181,33 @@
   sudo_user: redmine
 
 - name: migrate database
-  shell: bundle exec rake redmine:plugins:migrate RAILS_ENV=production NAME=redmine_git_hosting
+  shell: cd ~/redmine && bundle exec rake redmine:plugins:migrate RAILS_ENV=production NAME=redmine_git_hosting
   sudo_user: redmine
 
 - name: gitolite must accept hook keys
-  lineinfile: dest=~/.gitolite.rc regexp={{ item.from }} line={{ item.to }}
+  lineinfile: dest=~/.gitolite.rc regexp="{{ item.from }}" line="{{ item.to }}"
   with_items:
-    - { form: "^\s*GIT_CONFIG_KEYS\s*=>", to: "GIT_CONFIG_KEYS => '.*'," }
-    - { form: "^\s*LOCAL_CODE\s*=>", to: 'LOCAL_CODE => "$ENV{HOME}/local"' }
+    - { from: '^\s*GIT_CONFIG_KEYS\s*=>', to: "GIT_CONFIG_KEYS => '.*'," }
+    - { from: '^.*LOCAL_CODE\s*=>', to: 'LOCAL_CODE => \"$ENV{HOME}/local\",' }
   sudo_user: git
 
 - name: configure sudo
-  file: /etc/sudoers.d/redmine mode=0440
-- lineinfile: dest=/etc/sudoers.d/redmine line={{ item }} validate='visudo -cf %s'
+  file: path=/etc/sudoers.d/redmine mode=0440 state=touch
+- lineinfile: dest=/etc/sudoers.d/redmine line="{{ item }}" validate='visudo -cf %s'
   with_items:
     - "Defaults:redmine !requiretty"
     - "redmine ALL=(git) NOPASSWD:ALL"
 
+- name: make /opt/redmine/.ssh directory
+  file: path=/opt/redmine/.ssh mode=0700 state=directory
+  sudo_user: redmine
+
+- name: make /opt/redmine/.ssh/known_hosts file
+  file: path=/opt/redmine/.ssh/known_hosts mode=0600 state=touch
+  sudo_user: redmine
+
 - name: add localhost to redmine user known_hosts
-  shell: {{ item }}
+  shell: "{{ item }}"
   with_items:
     - 'ssh-keygen -R localhost'
     - 'ssh-keyscan -H -t rsa localhost >> ~/.ssh/known_hosts'
