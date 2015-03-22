@@ -1,0 +1,65 @@
+- name: add postgres apt-key
+  apt_key: url=https://www.postgresql.org/media/keys/ACCC4CF8.asc state=present
+
+- name: add postgres repo
+  apt_repository: repo='deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main 9.4' state=present
+
+- name: update apt cache
+  apt: update_cache=yes cache_valid_time=3600
+
+- name: install locales package
+  apt: name=locales
+
+- name: gen en_US.UTF-8 locale
+  locale_gen: name=en_US.UTF-8 state=present
+
+- name: set locale en_US.UTF-8 as default
+  lineinfile: dest=/etc/environment regexp="^LANG=" line="LANG=en_US.UTF-8"
+
+- name: add postgres group
+  group: name=postgres system=yes
+
+- name: add postgres user
+  user: name=postgres group=redmine system=yes
+
+- name: make /var/run/postgresql directory
+  file: path=/var/run/postgresql owner=postgres group=postgres mode=0755 state=directory
+
+- name: install packages
+  apt: name={{ item }}
+  with_items:
+    - postgresql-common
+    - postgresql-9.4
+    - postgresql-contrib-9.4
+
+- name: check postgresql service
+  service: name=postgresql enabled=yes state=started
+
+- name: add /usr/lib/postgresql/9.4/bin to PATH and set PGDATA
+  lineinfile: dest=/etc/environment regexp="{{ item.regexp }}" line="{{ item.line }}" backrefs=yes
+  with_items:
+    - { regexp: '^PATH="*(.+)"*$', line: 'PATH=\"/usr/lib/postgresql/9.4/bin:\1\"' }
+    - { regexp: '^PGDATA=', line: 'PGDATA=/var/lib/postgresql/data' }
+
+- name:
+  shell: psql --command "{{ item }}"
+  with_items:
+    - "UPDATE pg_database SET datistemplate = FALSE WHERE datname = 'template1';"
+    - "DROP DATABASE template1;"
+    - "CREATE DATABASE template1 WITH TEMPLATE = template0 ENCODING = 'UNICODE';"
+    - "UPDATE pg_database SET datistemplate = TRUE WHERE datname = 'template1';"
+    - '\c template1'
+    - 'VACUUM FREEZE'
+    - "UPDATE pg_database SET datallowconn = FALSE WHERE datname = 'template1';"
+    - "CREATE ROLE redmine LOGIN ENCRYPTED PASSWORD 'md5c5a58b543b1cad88fa10f629c0e535c1' NOINHERIT VALID UNTIL 'infinity';"
+    - "CREATE DATABASE redmine WITH ENCODING='UTF8' OWNER=redmine;"
+  sudo_user: postgres
+
+- name: edit pg_hba.conf
+  lineinfile: dest=/etc/postgresql/9.4/main/pg_hba.conf regexp="host\s+all\s+all\s+0.0.0.0/0\s+md5" line="host all  all    0.0.0.0/0  md5"
+
+- name: edit postgresql.conf
+  lineinfile: dest=/etc/postgresql/9.4/main/postgresql.conf regexp="listen_addresses='\*'" line="listen_addresses='*'"
+
+- name: restart postgres service
+  service: name=postgresql enabled=yes state=restarted
