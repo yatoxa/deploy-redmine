@@ -25,3 +25,4 @@
   roles:
     - deploy-postgresql
     - deploy-redmine
+    - deploy-nginx

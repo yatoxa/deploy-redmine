@@ -1,0 +1,31 @@
+- name: add nginx apt-key
+  apt_key: url=http://nginx.org/keys/nginx_signing.key state=present
+
+- name: add nginx repo
+  apt_repository: repo='deb http://nginx.org/packages/ubuntu/ trusty nginx' state=present
+
+- name: add nginx repo src
+  apt_repository: repo='deb-src http://nginx.org/packages/ubuntu/ trusty nginx' state=present
+
+- name: update apt cache
+  apt: update_cache=yes cache_valid_time=3600
+
+- name: install packages
+  apt: name={{ item }}
+  with_items:
+    - nginx
+
+- name: check nginx service
+  service: name=nginx enabled=yes state=started
+
+- name: remove standart nginx configuration
+  shell: rm -f /etc/nginx/conf.d/*.conf
+
+- name: restart nginx service
+  service: name=nginx state=restarted
+
+- name: copy redmine nginx config
+  template: src=nginx/conf.d/redmine.conf dest=/etc/nginx/conf.d/redmine.conf mode=0644
+
+- name: restart nginx service
+  service: name=nginx state=restarted
