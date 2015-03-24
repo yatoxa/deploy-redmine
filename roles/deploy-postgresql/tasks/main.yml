@@ -28,7 +28,7 @@
   group: name=postgres system=yes
 
 - name: add postgres user
-  user: name=postgres group=redmine system=yes
+  user: name=postgres group=postgres system=yes
 
 - name: make /var/run/postgresql directory
   file: path=/var/run/postgresql owner=postgres group=postgres mode=0755 state=directory
@@ -67,7 +67,7 @@
     - '\c template1'
     - 'VACUUM FREEZE'
     - "UPDATE pg_database SET datallowconn = FALSE WHERE datname = 'template1';"
-    - "CREATE ROLE {{ redmine_db_username }} LOGIN ENCRYPTED PASSWORD 'md5`echo -n "{{ redmine_db_username + redmine_db_password }}" | md5sum | sed 's/[^[:alnum:]]//g'`' NOINHERIT VALID UNTIL 'infinity';"
+    - "CREATE ROLE {{ redmine_db_username }} LOGIN ENCRYPTED PASSWORD 'md5`echo -n \"{{ redmine_db_username + redmine_db_password }}\" | md5sum | sed 's/[^[:alnum:]]//g'`' NOINHERIT VALID UNTIL 'infinity';"
     - "CREATE DATABASE {{ redmine_db_database }} WITH ENCODING='UTF8' OWNER={{ redmine_db_username }};"
   sudo_user: postgres
 
