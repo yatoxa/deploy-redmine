@@ -38,11 +38,14 @@
   sudo_user: redmine
 
 - name: add rbenv to $PATH
-  shell: echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
+  lineinfile: dest=~/.bash_profile line='export PATH="$HOME/.rbenv/bin:$PATH"'
   sudo_user: redmine
 
 - name: add rbenv initialization to .bash_profile
-  shell: echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
+  shell: eval "$(rbenv init -)"
+  register: rbenv_init_result
+  sudo_user: redmine
+- lineinfile: dest=~/.bash_profile line="{{ rbenv_init_result.stdout }}"
   sudo_user: redmine
 
 - name: install ruby 2.2.1
@@ -74,15 +77,18 @@
   template: src=config/database.postgresql.yml dest=/opt/redmine/redmine/config/database.yml owner=redmine group=redmine mode=0600
 
 - name: install gems
-  shell: 'echo "gem: --no-ri --no-rdoc" >> ~/.gemrc'
+  file: path={{ item }} state=touch
+  with_items:
+    - '~/.gemrc'
+    - '~/redmine/Gemfile.local'
   sudo_user: redmine
-- shell: echo "# Gemfile.local\ngem 'puma'" >> ~/redmine/Gemfile.local
+- lineinfile: dest="{{ item.path }}" line="{{ item.line }}"
+  with_items:
+    - { path: '~/.gemrc', line: "gem: --no-ri --no-rdoc" }
+    - { path: '~/redmine/Gemfile.local', line: '# Gemfile.local' }
+    - { path: '~/redmine/Gemfile.local', line: "gem 'puma'" }
   sudo_user: redmine
-- shell: gem install bundler
-  sudo_user: redmine
-- shell: rbenv rehash
-  sudo_user: redmine
-- shell: cd ~/redmine && bundle install --without development test
+- shell: gem install bundler && rbenv rehash && cd ~/redmine && bundle install --without development test
   sudo_user: redmine
 
 - name: generate token and prepare database
@@ -96,10 +102,10 @@
   shell: update-rc.d redmine defaults
 
 - name: start redmine service
-  service: name=redmine enabled=yes state=started
+  shell: /etc/init.d/redmine start
 
 - name: stop redmine service
-  service: name=redmine state=stopped
+  shell: /etc/init.d/redmine stop
 
 - name: clone bootstrap kit 0.2.2
   git: repo=https://github.com/jbox-web/redmine_bootstrap_kit.git accept_hostkey=yes dest=~/redmine/plugins/redmine_bootstrap_kit version=0.2.2
@@ -188,4 +194,4 @@
   sudo_user: redmine
 
 - name: start redmine service
-  service: name=redmine enabled=yes state=started
+  shell: /etc/init.d/redmine start
