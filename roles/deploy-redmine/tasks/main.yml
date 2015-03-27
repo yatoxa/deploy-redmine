@@ -38,14 +38,13 @@
   sudo_user: redmine
 
 - name: add rbenv to $PATH
-  lineinfile: dest=~/.bash_profile line='export PATH="$HOME/.rbenv/bin:$PATH"'
+  file: path=~/.bash_profile state=touch
+  sudo_user: redmine
+- lineinfile: dest=~/.bash_profile line='export PATH="$HOME/.rbenv/bin:$PATH"'
   sudo_user: redmine
 
 - name: add rbenv initialization to .bash_profile
-  shell: eval "$(rbenv init -)"
-  register: rbenv_init_result
-  sudo_user: redmine
-- lineinfile: dest=~/.bash_profile line="{{ rbenv_init_result.stdout }}"
+  lineinfile: dest=~/.bash_profile line='eval "$(rbenv init -)"'
   sudo_user: redmine
 
 - name: install ruby 2.2.1
